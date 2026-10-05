@@ -1,66 +1,97 @@
 <p align="center">
-  <img src="assets/crun-mark.svg" width="88" alt="crun logo">
+  <img src="assets/coload-mark.svg" width="88" alt="coload logo">
 </p>
 
-<h1 align="center">crun</h1>
+<h1 align="center">coload</h1>
 
 <p align="center">
-  Run commands from a local project on Google Colab compute.
+  <strong>Offload your whole local project to Google Colab.</strong>
 </p>
 
 <p align="center">
-  <img src="assets/crun-hero.svg" alt="crun overview">
+  Keep coding locally. Run the project on Colab compute. Sync the results back automatically.
+</p>
+
+<p align="center">
+  <img src="assets/coload-hero.svg" alt="coload overview">
 </p>
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/autkucakan/crun/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/autkucakan/coload/main/install.sh | bash
 ```
 
-You can also install from source:
-
-```bash
-git clone https://github.com/autkucakan/crun.git
-cd crun
-./install.sh
-```
-
-Then use `crun` from any local project:
+Then, from any local project:
 
 ```bash
 cd ~/workspace/my-project
-crun python train.py
-```
-
-Choose the runtime when you need something different:
-
-```bash
-crun --gpu L4 python train.py
-crun --gpu A100 python train.py
-crun --cpu python script.py
-crun --tpu v6e1 python train.py
+coload --gpu L4 python train.py
 ```
 
 <p align="center">
-  <img src="assets/crun-demo.gif" alt="crun terminal demo">
+  <img src="assets/coload-demo.gif" alt="coload terminal demo">
 </p>
 
-## What it does
+## Whole-project Colab offloading
 
-You keep the project in your normal local folder and edit it with VS Code.
+Google's `colab run` uses a local Python script as the unit of work:
 
-For each run, `crun`:
+```bash
+colab run --gpu L4 train.py
+```
+
+`coload` uses your project folder as the unit of work:
+
+```bash
+cd my-project
+coload --gpu L4 python train.py
+```
+
+| | `colab run` | `coload` |
+| --- | --- | --- |
+| Unit of work | Python script | Project directory |
+| Project files | Script is sent for execution | Working directory is synced |
+| Command | Python script | Arbitrary command |
+| Remote changes | Not a project sync workflow | Synced back locally |
+| Runtime lifecycle | Automatic | Automatic |
+
+Use `coload` when the code you want to offload is a real project rather than a self-contained script.
+
+## How offloading works
+
+For every run, `coload`:
 
 1. starts a temporary Colab runtime;
-2. syncs the current project to `/content/project`;
-3. runs your command there and streams its terminal output;
-4. syncs the remote project back to the local folder;
-5. stops the Colab runtime.
+2. offloads the current project to `/content/project`;
+3. runs your command inside that project;
+4. streams the command output to your terminal;
+5. syncs remote changes back to your local project;
+6. releases the Colab runtime.
 
-If the command fails or is interrupted, `crun` still attempts to sync the files back and release the runtime.
+Your editor, Git repository, and normal development workflow stay local.
+
+If the command fails or is interrupted, `coload` still attempts to sync changes back and release the runtime.
 
 ## Runtime options
+
+```bash
+# T4 by default
+coload python train.py
+
+# Choose another GPU
+coload --gpu L4 python train.py
+coload --gpu A100 python train.py
+
+# CPU
+coload --cpu python script.py
+
+# TPU
+coload --tpu v6e1 python train.py
+
+# Request high-memory compute
+coload --gpu A100 --high-mem python train.py
+```
 
 | Option | Runtime |
 | --- | --- |
@@ -73,30 +104,15 @@ If the command fails or is interrupted, `crun` still attempts to sync the files 
 | `--tpu v5e1` | TPU v5e1 |
 | `--tpu v6e1` | TPU v6e1 |
 | `--cpu` | CPU |
-| `--high-mem` | Requests a high-memory runtime when supported |
+| `--high-mem` | High-memory runtime when available |
 
-Runtime availability still depends on your Colab account, quota, plan, and Google's current capacity.
+Accelerator availability depends on your Google Colab account, quota, plan, and Google's available capacity.
 
-## Example
+## What gets offloaded
 
-```python
-# test_gpu.py
-import torch
+The current directory is synchronized to the Colab runtime.
 
-print("CUDA available:", torch.cuda.is_available())
-if torch.cuda.is_available():
-    print("Device:", torch.cuda.get_device_name(0))
-```
-
-Run it from the same local folder:
-
-```bash
-crun --gpu L4 python test_gpu.py
-```
-
-## Files that stay local
-
-`crun` skips common directories that should not be copied to the runtime:
+Common local-only directories are excluded:
 
 ```text
 .git/
@@ -105,36 +121,51 @@ __pycache__/
 node_modules/
 ```
 
-Everything else in the current directory is synchronized before the command runs. Files created or changed remotely are synchronized back afterward.
+Files created or changed during the remote command are synchronized back afterward.
 
 ## Installation details
 
-`install.sh` sets up the pieces `crun` needs:
+The installer sets up:
 
-- `uv`, if it is missing
+- `uv`, when needed
 - Python 3.12
-- Google Colab CLI
-- a dedicated SSH key at `~/.ssh/crun_ed25519`
-- `crun` in `~/.local/bin`
+- Google's Colab CLI
+- a dedicated SSH key at `~/.ssh/coload_ed25519`
+- `coload` at `~/.local/bin/coload`
 - Google Colab authentication
 
-The installer does not replace your existing SSH keys.
+It does not replace your existing SSH keys.
+
+You can also install from source:
+
+```bash
+git clone https://github.com/autkucakan/coload.git
+cd coload
+./install.sh
+```
 
 ## Requirements
 
-`crun` currently targets Linux.
+`coload` currently targets Linux.
 
-The machine needs OpenSSH, `rsync`, and either `curl` or `wget`. You also need a Google account with Colab access.
+You need:
 
-## Colab usage
+- a Google account with Colab access
+- OpenSSH
+- `rsync`
+- `curl` or `wget`
 
-Starting a runtime consumes Colab resources according to your account and plan. `crun` stops the runtime after the command exits instead of leaving it running intentionally.
+## Scope
 
-GPU and TPU availability is controlled by Google Colab.
+`coload` is focused on one workflow:
+
+**offloading whole local projects to Google Colab compute.**
+
+It is not intended to become a general cloud GPU platform or multi-provider compute abstraction.
 
 ## Status
 
-`crun` is an early project built on the Google Colab CLI. Colab CLI changes may require updates here.
+`coload` is an early open-source project built on Google's Colab CLI. Changes to the underlying Colab CLI may require corresponding updates.
 
 ## License
 

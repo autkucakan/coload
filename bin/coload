@@ -2,8 +2,8 @@
 set -u
 
 COLAB="$(command -v colab || true)"
-KEY="$HOME/.ssh/crun_ed25519"
-SESSION="crun-$$"
+KEY="$HOME/.ssh/coload_ed25519"
+SESSION="coload-$$"
 REMOTE="/content/project"
 SSHCFG="$(mktemp)"
 REMOTE_READY=0
@@ -15,7 +15,7 @@ HIGH_MEM=false
 usage() {
     cat <<'HELP'
 Usage:
-  crun [options] <command> [args...]
+  coload [options] <command> [args...]
 
 Options:
   --cpu                 Use a CPU runtime
@@ -25,10 +25,10 @@ Options:
   -h, --help            Show this help
 
 Examples:
-  crun python train.py
-  crun --gpu L4 python train.py
-  crun --gpu A100 --high-mem python train.py
-  crun --cpu python script.py
+  coload python train.py
+  coload --gpu L4 python train.py
+  coload --gpu A100 --high-mem python train.py
+  coload --cpu python script.py
 HELP
 }
 
@@ -37,23 +37,22 @@ cleanup() {
     trap - EXIT INT TERM
 
     if [ "$REMOTE_READY" = "1" ]; then
-        echo "[crun] Syncing outputs back..."
+        echo "[coload] Syncing outputs back..."
         rsync -az \
             --exclude '.git/' \
             --exclude '.venv/' \
             --exclude '__pycache__/' \
             --exclude 'node_modules/' \
             -e "ssh -F $SSHCFG" \
-            crun:"$REMOTE/" ./ || true
+            coload:"$REMOTE/" ./ || true
     fi
 
-    echo "[crun] Releasing Colab..."
+    echo "[coload] Releasing Colab..."
     [ -n "$COLAB" ] && "$COLAB" stop -s "$SESSION" >/dev/null 2>&1 || true
     rm -f "$SSHCFG"
     exit "$rc"
 }
 
-trap cleanup EXIT INT TERM
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -63,12 +62,12 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         --gpu)
-            [ "$#" -ge 2 ] || { echo "crun: --gpu requires a type"; exit 2; }
+            [ "$#" -ge 2 ] || { echo "coload: --gpu requires a type"; exit 2; }
 
             case "$2" in
                 T4|L4|G4|A100|H100) ;;
                 *)
-                    echo "crun: unsupported GPU '$2'"
+                    echo "coload: unsupported GPU '$2'"
                     echo "Available: T4, L4, G4, A100, H100"
                     exit 2
                     ;;
@@ -79,12 +78,12 @@ while [ "$#" -gt 0 ]; do
             shift 2
             ;;
         --tpu)
-            [ "$#" -ge 2 ] || { echo "crun: --tpu requires a type"; exit 2; }
+            [ "$#" -ge 2 ] || { echo "coload: --tpu requires a type"; exit 2; }
 
             case "$2" in
                 v5e1|v6e1) ;;
                 *)
-                    echo "crun: unsupported TPU '$2'"
+                    echo "coload: unsupported TPU '$2'"
                     echo "Available: v5e1, v6e1"
                     exit 2
                     ;;
@@ -118,20 +117,20 @@ if [ "$#" -eq 0 ]; then
 fi
 
 if [ -z "$COLAB" ]; then
-    echo "crun: Google Colab CLI is not installed."
-    echo "Run the crun installer again."
+    echo "coload: Google Colab CLI is not installed."
+    echo "Run the coload installer again."
     exit 1
 fi
 
 if [ ! -f "$KEY" ]; then
-    echo "crun: SSH key missing: $KEY"
-    echo "Run the crun installer again."
+    echo "coload: SSH key missing: $KEY"
+    echo "Run the coload installer again."
     exit 1
 fi
 
 for dep in ssh rsync; do
     if ! command -v "$dep" >/dev/null 2>&1; then
-        echo "crun: required command '$dep' is missing."
+        echo "coload: required command '$dep' is missing."
         exit 1
     fi
 done
@@ -141,7 +140,7 @@ if [ "$HIGH_MEM" = true ]; then
 fi
 
 cat > "$SSHCFG" <<CFG
-Host crun
+Host coload
     HostName colab
     User root
     IdentityFile $KEY
@@ -152,23 +151,24 @@ Host crun
     LogLevel ERROR
 CFG
 
-echo "[crun] Starting $ACCEL_NAME runtime..."
+echo "[coload] Starting $ACCEL_NAME runtime..."
 "$COLAB" new -s "$SESSION" "${ACCEL_ARGS[@]}" || exit $?
+trap cleanup EXIT INT TERM
 
-echo "[crun] Preparing workspace..."
-ssh -F "$SSHCFG" crun "mkdir -p '$REMOTE'" || exit $?
+echo "[coload] Preparing workspace..."
+ssh -F "$SSHCFG" coload "mkdir -p '$REMOTE'" || exit $?
 REMOTE_READY=1
 
-echo "[crun] Syncing project..."
+echo "[coload] Syncing project..."
 rsync -az \
     --exclude '.git/' \
     --exclude '.venv/' \
     --exclude '__pycache__/' \
     --exclude 'node_modules/' \
     -e "ssh -F $SSHCFG" \
-    ./ crun:"$REMOTE/" || exit $?
+    ./ coload:"$REMOTE/" || exit $?
 
 printf -v CMD '%q ' "$@"
 
-echo "[crun] Running: $*"
-ssh -F "$SSHCFG" crun "cd '$REMOTE' && $CMD"
+echo "[coload] Running: $*"
+ssh -F "$SSHCFG" coload "cd '$REMOTE' && $CMD"

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="autkucakan/crun"
-BRANCH="${CRUN_BRANCH:-main}"
+REPO="autkucakan/coload"
+BRANCH="${COLOAD_BRANCH:-main}"
 RAW_BASE="https://raw.githubusercontent.com/$REPO/$BRANCH"
 
 BIN_DIR="$HOME/.local/bin"
-CRUN_BIN="$BIN_DIR/crun"
-CRUN_KEY="$HOME/.ssh/crun_ed25519"
+COLOAD_BIN="$BIN_DIR/coload"
+COLOAD_KEY="$HOME/.ssh/coload_ed25519"
 
-echo "[crun] Installing..."
+echo "[coload] Installing..."
 
 mkdir -p "$BIN_DIR" "$HOME/.ssh"
 
@@ -28,7 +28,7 @@ if command -v uv >/dev/null 2>&1; then
 elif [ -x "$BIN_DIR/uv" ]; then
     UV="$BIN_DIR/uv"
 else
-    echo "[crun] Installing uv..."
+    echo "[coload] Installing uv..."
 
     if command -v curl >/dev/null 2>&1; then
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -42,10 +42,10 @@ else
     UV="$BIN_DIR/uv"
 fi
 
-echo "[crun] Ensuring Python 3.12..."
+echo "[coload] Ensuring Python 3.12..."
 "$UV" python install 3.12
 
-echo "[crun] Installing Google Colab CLI..."
+echo "[coload] Installing Google Colab CLI..."
 "$UV" tool install --python 3.12 google-colab-cli --force
 
 export PATH="$BIN_DIR:$PATH"
@@ -55,16 +55,16 @@ if ! command -v colab >/dev/null 2>&1; then
     exit 1
 fi
 
-# Dedicated crun SSH key
-if [ ! -f "$CRUN_KEY" ]; then
-    echo "[crun] Creating SSH key..."
-    ssh-keygen -q -t ed25519 -N "" -f "$CRUN_KEY"
+# Dedicated coload SSH key
+if [ ! -f "$COLOAD_KEY" ]; then
+    echo "[coload] Creating SSH key..."
+    ssh-keygen -q -t ed25519 -N "" -f "$COLOAD_KEY"
 fi
 
-chmod 600 "$CRUN_KEY"
-chmod 644 "$CRUN_KEY.pub"
+chmod 600 "$COLOAD_KEY"
+chmod 644 "$COLOAD_KEY.pub"
 
-# Install crun.
+# Install coload.
 # Prefer local source when running from a cloned repository.
 SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
 
@@ -74,22 +74,22 @@ else
     SCRIPT_DIR=""
 fi
 
-if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/bin/crun" ]; then
-    echo "[crun] Installing local crun..."
-    install -m 755 "$SCRIPT_DIR/bin/crun" "$CRUN_BIN"
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/bin/coload" ]; then
+    echo "[coload] Installing local coload..."
+    install -m 755 "$SCRIPT_DIR/bin/coload" "$COLOAD_BIN"
 else
-    echo "[crun] Downloading crun..."
+    echo "[coload] Downloading coload..."
 
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$RAW_BASE/bin/crun" -o "$CRUN_BIN"
+        curl -fsSL "$RAW_BASE/bin/coload" -o "$COLOAD_BIN"
     elif command -v wget >/dev/null 2>&1; then
-        wget -q "$RAW_BASE/bin/crun" -O "$CRUN_BIN"
+        wget -q "$RAW_BASE/bin/coload" -O "$COLOAD_BIN"
     else
         echo "error: curl or wget is required."
         exit 1
     fi
 
-    chmod 755 "$CRUN_BIN"
+    chmod 755 "$COLOAD_BIN"
 fi
 
 # Add ~/.local/bin to future shells
@@ -106,14 +106,14 @@ if ! grep -Fq "$PATH_LINE" "$RC" 2>/dev/null; then
 fi
 
 echo
-echo "[crun] Google authentication"
+echo "[coload] Google authentication"
 echo "Follow the Google authorization flow below."
 echo
 
 colab --auth=oauth2 sessions
 
 echo
-echo "[crun] Installed."
+echo "[coload] Installed."
 echo
 echo "Run:"
-echo "  crun python train.py"
+echo "  coload python train.py"
