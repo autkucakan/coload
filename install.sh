@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="autkucakan/crun"
+BRANCH="${CRUN_BRANCH:-main}"
+RAW_BASE="https://raw.githubusercontent.com/$REPO/$BRANCH"
+
 BIN_DIR="$HOME/.local/bin"
 CRUN_BIN="$BIN_DIR/crun"
 CRUN_KEY="$HOME/.ssh/crun_ed25519"
 
 echo "[crun] Installing..."
 
-# Required system commands
+mkdir -p "$BIN_DIR" "$HOME/.ssh"
+
+# Required system tools
 for cmd in ssh rsync; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         echo "error: '$cmd' is required."
@@ -17,9 +22,7 @@ for cmd in ssh rsync; do
     fi
 done
 
-mkdir -p "$BIN_DIR" "$HOME/.ssh"
-
-# Install uv if missing
+# Find or install uv
 if command -v uv >/dev/null 2>&1; then
     UV="$(command -v uv)"
 elif [ -x "$BIN_DIR/uv" ]; then
@@ -32,41 +35,64 @@ else
     elif command -v wget >/dev/null 2>&1; then
         wget -qO- https://astral.sh/uv/install.sh | sh
     else
-        echo "error: curl or wget is required to install uv."
+        echo "error: curl or wget is required."
         exit 1
     fi
 
     UV="$BIN_DIR/uv"
 fi
 
-# Colab CLI requires Python >=3.12
 echo "[crun] Ensuring Python 3.12..."
 "$UV" python install 3.12
 
-# Install/update Colab CLI
 echo "[crun] Installing Google Colab CLI..."
 "$UV" tool install --python 3.12 google-colab-cli --force
 
 export PATH="$BIN_DIR:$PATH"
 
 if ! command -v colab >/dev/null 2>&1; then
-    echo "error: Colab CLI installation failed."
+    echo "error: Google Colab CLI installation failed."
     exit 1
 fi
 
-# Dedicated key. Never modify user's existing SSH keys.
+# Dedicated crun SSH key
 if [ ! -f "$CRUN_KEY" ]; then
-    echo "[crun] Creating dedicated SSH key..."
+    echo "[crun] Creating SSH key..."
     ssh-keygen -q -t ed25519 -N "" -f "$CRUN_KEY"
 fi
 
 chmod 600 "$CRUN_KEY"
 chmod 644 "$CRUN_KEY.pub"
 
-# Install crun
-install -m 755 "$REPO_DIR/bin/crun" "$CRUN_BIN"
+# Install crun.
+# Prefer local source when running from a cloned repository.
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
 
-# Ensure ~/.local/bin is available in future shells
+if [ -n "$SCRIPT_SOURCE" ] && [ -f "$SCRIPT_SOURCE" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
+else
+    SCRIPT_DIR=""
+fi
+
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/bin/crun" ]; then
+    echo "[crun] Installing local crun..."
+    install -m 755 "$SCRIPT_DIR/bin/crun" "$CRUN_BIN"
+else
+    echo "[crun] Downloading crun..."
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$RAW_BASE/bin/crun" -o "$CRUN_BIN"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "$RAW_BASE/bin/crun" -O "$CRUN_BIN"
+    else
+        echo "error: curl or wget is required."
+        exit 1
+    fi
+
+    chmod 755 "$CRUN_BIN"
+fi
+
+# Add ~/.local/bin to future shells
 case "${SHELL:-}" in
     */zsh)  RC="$HOME/.zshrc" ;;
     */bash) RC="$HOME/.bashrc" ;;
@@ -81,14 +107,13 @@ fi
 
 echo
 echo "[crun] Google authentication"
-echo "Follow the URL below and paste the authorization code when requested."
+echo "Follow the Google authorization flow below."
 echo
 
-# Read-only call. Triggers OAuth login without provisioning a VM.
 colab --auth=oauth2 sessions
 
 echo
-echo "[crun] Installed successfully."
-echo "Usage:"
-echo "  cd your-project"
+echo "[crun] Installed."
+echo
+echo "Run:"
 echo "  crun python train.py"
