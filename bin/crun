@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+set -u
+
+COLAB="$(command -v colab || true)"
+KEY="$HOME/.ssh/crun_ed25519"
+SESSION="crun-$$"
+REMOTE="/content/project"
+SSHCFG="$(mktemp)"
+REMOTE_READY=0
+
+ACCEL_ARGS=(--gpu T4)
+ACCEL_NAME="T4"
+HIGH_MEM=false
+
+usage() {
+    cat <<'HELP'
+Usage:
+  crun [options] <command> [args...]
+
+Options:
+  --cpu                 Use a CPU runtime
+  --gpu TYPE            Use a GPU: T4, L4, G4, A100, H100
+  --tpu TYPE            Use a TPU: v5e1, v6e1
+  --high-mem            Request a high-memory runtime when supported
+  -h, --help            Show this help
+
+Examples:
+  crun python train.py
+  crun --gpu L4 python train.py
+  crun --gpu A100 --high-mem python train.py
+  crun --cpu python script.py
+HELP
+}
+
+cleanup() {
+    rc=$?
+    trap - EXIT INT TERM
+
+    if [ "$REMOTE_READY" = "1" ]; then
+        echo "[crun] Syncing outputs back..."
+        rsync -az \
+            --exclude '.git/' \
+            --exclude '.venv/' \
+            --exclude '__pycache__/' \
+            --exclude 'node_modules/' \
+            -e "ssh -F $SSHCFG" \
+            crun:"$REMOTE/" ./ || true
+    fi
+
+    echo "[crun] Releasing Colab..."
+    [ -n "$COLAB" ] && "$COLAB" stop -s "$SESSION" >/dev/null 2>&1 || true
+    rm -f "$SSHCFG"
+    exit "$rc"
+}
+
+trap cleanup EXIT INT TERM
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --cpu)
+            ACCEL_ARGS=()
+            ACCEL_NAME="CPU"
+            shift
+            ;;
+        --gpu)
+            [ "$#" -ge 2 ] || { echo "crun: --gpu requires a type"; exit 2; }
+
+            case "$2" in
+                T4|L4|G4|A100|H100) ;;
+                *)
+                    echo "crun: unsupported GPU '$2'"
+                    echo "Available: T4, L4, G4, A100, H100"
+                    exit 2
+                    ;;
+            esac
+
+            ACCEL_ARGS=(--gpu "$2")
+            ACCEL_NAME="$2"
+            shift 2
+            ;;
+        --tpu)
+            [ "$#" -ge 2 ] || { echo "crun: --tpu requires a type"; exit 2; }
+
+            case "$2" in
+                v5e1|v6e1) ;;
+                *)
+                    echo "crun: unsupported TPU '$2'"
+                    echo "Available: v5e1, v6e1"
+                    exit 2
+                    ;;
+            esac
+
+            ACCEL_ARGS=(--tpu "$2")
+            ACCEL_NAME="$2"
+            shift 2
+            ;;
+        --high-mem)
+            HIGH_MEM=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ "$#" -eq 0 ]; then
+    usage
+    exit 2
+fi
+
+if [ -z "$COLAB" ]; then
+    echo "crun: Google Colab CLI is not installed."
+    echo "Run the crun installer again."
+    exit 1
+fi
+
+if [ ! -f "$KEY" ]; then
+    echo "crun: SSH key missing: $KEY"
+    echo "Run the crun installer again."
+    exit 1
+fi
+
+for dep in ssh rsync; do
+    if ! command -v "$dep" >/dev/null 2>&1; then
+        echo "crun: required command '$dep' is missing."
+        exit 1
+    fi
+done
+
+if [ "$HIGH_MEM" = true ]; then
+    ACCEL_ARGS+=(--high-mem)
+fi
+
+cat > "$SSHCFG" <<CFG
+Host crun
+    HostName colab
+    User root
+    IdentityFile $KEY
+    IdentitiesOnly yes
+    ProxyCommand $COLAB ssh --proxy-mode -s $SESSION -i $KEY
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+CFG
+
+echo "[crun] Starting $ACCEL_NAME runtime..."
+"$COLAB" new -s "$SESSION" "${ACCEL_ARGS[@]}" || exit $?
+
+echo "[crun] Preparing workspace..."
+ssh -F "$SSHCFG" crun "mkdir -p '$REMOTE'" || exit $?
+REMOTE_READY=1
+
+echo "[crun] Syncing project..."
+rsync -az \
+    --exclude '.git/' \
+    --exclude '.venv/' \
+    --exclude '__pycache__/' \
+    --exclude 'node_modules/' \
+    -e "ssh -F $SSHCFG" \
+    ./ crun:"$REMOTE/" || exit $?
+
+printf -v CMD '%q ' "$@"
+
+echo "[crun] Running: $*"
+ssh -F "$SSHCFG" crun "cd '$REMOTE' && $CMD"

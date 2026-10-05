@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="620" viewBox="0 0 1600 620">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1020"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="620" rx="36" fill="url(#bg)"/>
+  <circle cx="1330" cy="110" r="220" fill="#1d4ed8" opacity="0.10"/>
+  <circle cx="1440" cy="520" r="290" fill="#7c3aed" opacity="0.10"/>
+
+  <text x="120" y="170" fill="#f8fafc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="112" font-weight="700">crun</text>
+  <rect x="120" y="202" width="430" height="10" rx="5" fill="url(#accent)"/>
+
+  <text x="120" y="286" fill="#cbd5e1" font-family="Inter, ui-sans-serif, system-ui, sans-serif"
+        font-size="39">Run local projects on Google Colab compute.</text>
+  <text x="120" y="337" fill="#94a3b8" font-family="Inter, ui-sans-serif, system-ui, sans-serif"
+        font-size="28">Keep editing locally. Send the command to Colab. Get the files back.</text>
+
+  <rect x="120" y="398" width="720" height="120" rx="22" fill="#020617" stroke="#334155" stroke-width="2"/>
+  <circle cx="157" cy="431" r="8" fill="#ef4444"/>
+  <circle cx="183" cy="431" r="8" fill="#f59e0b"/>
+  <circle cx="209" cy="431" r="8" fill="#22c55e"/>
+  <text x="155" y="484" fill="#e2e8f0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="31">$ crun --gpu L4 python train.py</text>
+
+  <g transform="translate(965 198)">
+    <rect x="0" y="0" width="200" height="118" rx="20" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+    <text x="100" y="50" text-anchor="middle" fill="#f8fafc" font-family="Inter, sans-serif" font-size="25" font-weight="600">local</text>
+    <text x="100" y="84" text-anchor="middle" fill="#94a3b8" font-family="Inter, sans-serif" font-size="19">VS Code</text>
+
+    <path d="M220 59 H328" stroke="#60a5fa" stroke-width="5" stroke-linecap="round"/>
+    <path d="M314 46 L330 59 L314 72" fill="none" stroke="#60a5fa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <rect x="350" y="0" width="230" height="118" rx="20" fill="#0f172a" stroke="#7c3aed" stroke-width="2"/>
+    <text x="465" y="50" text-anchor="middle" fill="#f8fafc" font-family="Inter, sans-serif" font-size="25" font-weight="600">Colab</text>
+    <text x="465" y="84" text-anchor="middle" fill="#c4b5fd" font-family="Inter, sans-serif" font-size="19">GPU / TPU / CPU</text>
+
+    <path d="M465 138 V212" stroke="#a78bfa" stroke-width="5" stroke-linecap="round"/>
+    <path d="M452 198 L465 214 L478 198" fill="none" stroke="#a78bfa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <rect x="350" y="235" width="230" height="118" rx="20" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+    <text x="465" y="285" text-anchor="middle" fill="#f8fafc" font-family="Inter, sans-serif" font-size="25" font-weight="600">results</text>
+    <text x="465" y="319" text-anchor="middle" fill="#94a3b8" font-family="Inter, sans-serif" font-size="19">synced back</text>
+  </g>
+</svg>
