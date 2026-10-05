@@ -12,7 +12,13 @@
   <img src="assets/crun-hero.svg" alt="crun overview">
 </p>
 
-## Start here
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/autkucakan/crun/main/install.sh | bash
+```
+
+You can also install from source:
 
 ```bash
 git clone https://github.com/autkucakan/crun.git
